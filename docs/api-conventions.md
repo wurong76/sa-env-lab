@@ -48,10 +48,22 @@
 - `count`：参与统计的条数
 - `byStatus`：status → 条数，**必须满足 `sum(byStatus.values()) == count`**
 
+## 健康检查
+
+`GET /api/health` 用于存活探针，**不依赖数据库、不需要鉴权**（路由表里标记为无需数据库连接，不会走 `app.db.connect()`）。返回标准成功 envelope：
+
+```json
+{"data": {"status": "ok", "version": "0.1.0"}}
+```
+
+- `status`：固定为 `ok`
+- `version`：服务版本，来自 `app/__init__.py` 的 `__version__`
+
 ## 现有端点
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
+| GET | `/api/health` | 健康检查（不依赖数据库、无需鉴权） |
 | GET | `/api/users/{id}` | 用户详情 |
 | GET | `/api/users/{id}/orders` | 用户订单列表（分页） |
 | GET | `/api/users/{id}/order-summary` | 用户订单汇总 |
