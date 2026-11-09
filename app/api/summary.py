@@ -1,13 +1,21 @@
 """统计接口。新增统计端点请对齐这里的响应结构：
 
     {"total": "<两位小数金额字符串>", "count": <整数>, "byStatus": {"<status>": <整数>}}
+
+refund-summary 额外返回 currency（取自 APP_CURRENCY）与 refundedOrderCount（发生过退款的订单数）。
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 
 from app.api.users import require_user
 from app.money import cents_to_yuan
+
+
+def _currency() -> str:
+    """对外展示的币种，取自环境变量 APP_CURRENCY（默认 CNY）。"""
+    return os.environ.get("APP_CURRENCY", "CNY")
 
 
 def order_summary(conn: sqlite3.Connection, user_id: int) -> dict:
@@ -21,5 +29,35 @@ def order_summary(conn: sqlite3.Connection, user_id: int) -> dict:
     return {
         "total": cents_to_yuan(sum(row["amount_sum"] for row in rows)),
         "count": sum(row["amount_count"] for row in rows),
+        "byStatus": {row["status"]: row["amount_count"] for row in rows},
+    }
+
+
+def refund_summary(conn: sqlite3.Connection, user_id: int) -> dict:
+    """用户退款汇总：笔数、累计退款金额、按退款状态分组。
+
+    口径：只计入 pending / settled 且未软删除的退款，
+    rejected 与软删除的退款不参与金额和笔数统计。
+    """
+    require_user(conn, user_id)
+    rows = conn.execute(
+        "SELECT r.status AS status, count(*) AS amount_count, "
+        "coalesce(sum(r.amount_cents), 0) AS amount_sum "
+        "FROM refunds r JOIN orders o ON o.id = r.order_id "
+        "WHERE o.user_id = ? AND r.deleted_at IS NULL AND r.status IN ('pending', 'settled') "
+        "GROUP BY r.status",
+        (user_id,),
+    ).fetchall()
+    refunded_order_count = conn.execute(
+        "SELECT count(DISTINCT r.order_id) "
+        "FROM refunds r JOIN orders o ON o.id = r.order_id "
+        "WHERE o.user_id = ? AND r.deleted_at IS NULL AND r.status IN ('pending', 'settled')",
+        (user_id,),
+    ).fetchone()[0]
+    return {
+        "total": cents_to_yuan(sum(row["amount_sum"] for row in rows)),
+        "currency": _currency(),
+        "count": sum(row["amount_count"] for row in rows),
+        "refundedOrderCount": refunded_order_count,
         "byStatus": {row["status"]: row["amount_count"] for row in rows},
     }

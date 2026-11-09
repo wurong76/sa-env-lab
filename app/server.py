@@ -26,6 +26,11 @@ ROUTES: list[tuple[str, re.Pattern[str], Handler]] = [
         re.compile(r"^/api/users/(\d+)/order-summary$"),
         lambda conn, m, q: summary.order_summary(conn, int(m.group(1))),
     ),
+    (
+        "GET",
+        re.compile(r"^/api/users/(\d+)/refund-summary$"),
+        lambda conn, m, q: summary.refund_summary(conn, int(m.group(1))),
+    ),
     ("GET", re.compile(r"^/api/orders/(\d+)$"), lambda conn, m, q: orders.get_order(conn, int(m.group(1)))),
     ("GET", re.compile(r"^/api/refunds$"), lambda conn, m, q: refunds.list_refunds(conn, q)),
 ]
