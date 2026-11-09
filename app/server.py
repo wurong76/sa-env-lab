@@ -9,25 +9,34 @@ from urllib.parse import parse_qs
 from wsgiref.simple_server import make_server
 
 from app import contract
-from app.api import orders, refunds, summary, users
+from app.api import health, orders, refunds, summary, users
 from app.db import connect
 
 Handler = Callable[[object, "re.Match[str]", dict[str, list[str]]], dict]
 
-ROUTES: list[tuple[str, re.Pattern[str], Handler]] = [
-    ("GET", re.compile(r"^/api/users/(\d+)$"), lambda conn, m, q: users.get_user(conn, int(m.group(1)))),
+# 每条路由：(方法, 路径正则, 处理函数, 是否依赖数据库连接)
+ROUTES: list[tuple[str, re.Pattern[str], Handler, bool]] = [
+    ("GET", re.compile(r"^/api/health$"), lambda conn, m, q: health.health(), False),
+    ("GET", re.compile(r"^/api/users/(\d+)$"), lambda conn, m, q: users.get_user(conn, int(m.group(1))), True),
     (
         "GET",
         re.compile(r"^/api/users/(\d+)/orders$"),
         lambda conn, m, q: users.list_orders(conn, int(m.group(1)), q),
+        True,
     ),
     (
         "GET",
         re.compile(r"^/api/users/(\d+)/order-summary$"),
         lambda conn, m, q: summary.order_summary(conn, int(m.group(1))),
+        True,
     ),
-    ("GET", re.compile(r"^/api/orders/(\d+)$"), lambda conn, m, q: orders.get_order(conn, int(m.group(1)))),
-    ("GET", re.compile(r"^/api/refunds$"), lambda conn, m, q: refunds.list_refunds(conn, q)),
+    (
+        "GET",
+        re.compile(r"^/api/orders/(\d+)$"),
+        lambda conn, m, q: orders.get_order(conn, int(m.group(1))),
+        True,
+    ),
+    ("GET", re.compile(r"^/api/refunds$"), lambda conn, m, q: refunds.list_refunds(conn, q), True),
 ]
 
 REASONS = {
@@ -53,17 +62,18 @@ def application(environ, start_response):
     method = environ.get("REQUEST_METHOD", "GET")
     query = parse_qs(environ.get("QUERY_STRING", ""))
     try:
-        for route_method, pattern, handler in ROUTES:
+        for route_method, pattern, handler, needs_db in ROUTES:
             match = pattern.match(path)
             if not match:
                 continue
             if route_method != method:
                 raise contract.ApiError("method_not_allowed", f"{method} not allowed on {path}", 405)
-            conn = connect()
+            conn = connect() if needs_db else None
             try:
                 payload = contract.ok(handler(conn, match, query))
             finally:
-                conn.close()
+                if conn is not None:
+                    conn.close()
             return _json(start_response, 200, payload)
         raise contract.ApiError("not_found", f"no route for {path}", 404)
     except contract.ApiError as error:
