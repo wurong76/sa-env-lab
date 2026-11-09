@@ -1,6 +1,8 @@
 """统计接口。新增统计端点请对齐这里的响应结构：
 
     {"total": "<两位小数金额字符串>", "count": <整数>, "byStatus": {"<status>": <整数>}}
+
+refund-summary 额外返回 refundedOrderCount（发生过退款的订单数）。
 """
 from __future__ import annotations
 
@@ -40,8 +42,15 @@ def refund_summary(conn: sqlite3.Connection, user_id: int) -> dict:
         "GROUP BY r.status",
         (user_id,),
     ).fetchall()
+    refunded_order_count = conn.execute(
+        "SELECT count(DISTINCT r.order_id) "
+        "FROM refunds r JOIN orders o ON o.id = r.order_id "
+        "WHERE o.user_id = ? AND r.deleted_at IS NULL AND r.status IN ('pending', 'settled')",
+        (user_id,),
+    ).fetchone()[0]
     return {
         "total": cents_to_yuan(sum(row["amount_sum"] for row in rows)),
         "count": sum(row["amount_count"] for row in rows),
+        "refundedOrderCount": refunded_order_count,
         "byStatus": {row["status"]: row["amount_count"] for row in rows},
     }
