@@ -45,6 +45,7 @@
 ```
 
 - `total`：金额字符串
+- `currency`：币种，仅退款汇总端点返回，取自环境变量 `APP_CURRENCY`（默认 `CNY`）
 - `count`：参与统计的条数
 - `byStatus`：status → 条数，**必须满足 `sum(byStatus.values()) == count`**
 - `refundedOrderCount`：仅退款汇总端点返回，发生过退款的订单数（按订单去重，统计口径与 `total` / `count` 一致）

@@ -37,6 +37,7 @@ def test_refund_summary_excludes_rejected_and_soft_deleted(client):
     assert status == 200
     assert body["data"] == {
         "total": "129.00",
+        "currency": "CNY",
         "count": 2,
         "refundedOrderCount": 2,
         "byStatus": {"settled": 2},
@@ -49,10 +50,25 @@ def test_refund_summary_groups_by_status(client):
     assert status == 200
     assert body["data"] == {
         "total": "75.00",
+        "currency": "CNY",
         "count": 2,
         "refundedOrderCount": 1,
         "byStatus": {"pending": 1, "settled": 1},
     }
+
+
+def test_refund_summary_currency_comes_from_env(client, monkeypatch):
+    monkeypatch.setenv("APP_CURRENCY", "USD")
+    status, body = client.request("GET", "/api/users/1/refund-summary")
+    assert status == 200
+    assert body["data"]["currency"] == "USD"
+
+
+def test_refund_summary_currency_defaults_to_cny(client, monkeypatch):
+    monkeypatch.delenv("APP_CURRENCY", raising=False)
+    status, body = client.request("GET", "/api/users/1/refund-summary")
+    assert status == 200
+    assert body["data"]["currency"] == "CNY"
 
 
 def test_refund_summary_ignores_rejected_only_orders(client):
@@ -74,6 +90,7 @@ def test_refund_summary_ignores_rejected_only_orders(client):
         assert status == 200
         assert body["data"] == {
             "total": "0.00",
+            "currency": "CNY",
             "count": 0,
             "refundedOrderCount": 0,
             "byStatus": {},
@@ -101,6 +118,7 @@ def test_refund_summary_of_user_without_refunds(client):
         assert status == 200
         assert body["data"] == {
             "total": "0.00",
+            "currency": "CNY",
             "count": 0,
             "refundedOrderCount": 0,
             "byStatus": {},

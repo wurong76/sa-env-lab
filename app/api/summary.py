@@ -2,14 +2,20 @@
 
     {"total": "<两位小数金额字符串>", "count": <整数>, "byStatus": {"<status>": <整数>}}
 
-refund-summary 额外返回 refundedOrderCount（发生过退款的订单数）。
+refund-summary 额外返回 currency（取自 APP_CURRENCY）与 refundedOrderCount（发生过退款的订单数）。
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 
 from app.api.users import require_user
 from app.money import cents_to_yuan
+
+
+def _currency() -> str:
+    """对外展示的币种，取自环境变量 APP_CURRENCY（默认 CNY）。"""
+    return os.environ.get("APP_CURRENCY", "CNY")
 
 
 def order_summary(conn: sqlite3.Connection, user_id: int) -> dict:
@@ -50,6 +56,7 @@ def refund_summary(conn: sqlite3.Connection, user_id: int) -> dict:
     ).fetchone()[0]
     return {
         "total": cents_to_yuan(sum(row["amount_sum"] for row in rows)),
+        "currency": _currency(),
         "count": sum(row["amount_count"] for row in rows),
         "refundedOrderCount": refunded_order_count,
         "byStatus": {row["status"]: row["amount_count"] for row in rows},
