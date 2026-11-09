@@ -1,0 +1,22 @@
+# 数据模型定义：table | column | sqltype | pytype
+# 改这里，然后 make gen 重新生成 app/generated/models.py
+
+users | id | INTEGER PRIMARY KEY | int
+users | email | TEXT NOT NULL UNIQUE | str
+users | name | TEXT NOT NULL | str
+users | created_at | TEXT NOT NULL | str
+
+orders | id | INTEGER PRIMARY KEY | int
+orders | user_id | INTEGER NOT NULL REFERENCES users(id) | int
+orders | total_cents | INTEGER NOT NULL | int
+orders | currency | TEXT NOT NULL DEFAULT 'CNY' | str
+orders | status | TEXT NOT NULL | str
+orders | created_at | TEXT NOT NULL | str
+
+refunds | id | INTEGER PRIMARY KEY | int
+refunds | order_id | INTEGER NOT NULL REFERENCES orders(id) | int
+refunds | amount_cents | INTEGER NOT NULL | int
+refunds | status | TEXT NOT NULL | str
+refunds | reason | TEXT | str
+refunds | deleted_at | TEXT | str
+refunds | created_at | TEXT NOT NULL | str
